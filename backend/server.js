@@ -1,10 +1,12 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+
 const connectDB = require('./config/database');
 
-// Import routes
+// Routes
 const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
 const statsRoutes = require('./routes/stats');
@@ -13,58 +15,90 @@ const dayRecordRoutes = require('./routes/dayRecords');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Connect to database
+/* =======================
+   Database Connection
+======================= */
 connectDB();
 
-// Middleware
+/* =======================
+   Middleware
+======================= */
 app.use(helmet());
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:8080'],
-  credentials: true
-}));
+
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+/* =======================
+   Root Route
+======================= */
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Habit Tracker API is running 🚀'
+  });
+});
+
+/* =======================
+   Health Check
+======================= */
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
+/* =======================
+   API Routes
+======================= */
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/records', dayRecordRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// 404 handler
+/* =======================
+   404 Handler
+======================= */
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: {
       code: 'NOT_FOUND',
-      message: 'Endpoint not found'
+      message: `Endpoint not found: ${req.originalUrl}`
     }
   });
 });
 
-// Global error handler
-app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
-  res.status(500).json({
+/* =======================
+   Global Error Handler
+======================= */
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+
+  res.status(err.status || 500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'Internal server error'
+      message: err.message || 'Internal server error'
     }
   });
 });
 
-// Start server
+/* =======================
+   Start Server
+======================= */
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
 });
